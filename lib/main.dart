@@ -5,8 +5,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage msg) async {
+  print("Background Handler");
   await Firebase.initializeApp();
-  print("Background Message ${msg}");
+  print("Background Message $msg");
 }
 
 const AndroidNotificationChannel channel = AndroidNotificationChannel(
@@ -22,6 +23,8 @@ final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   await flutterLocalNotificationsPlugin
     .resolvePlatformSpecificImplementation
@@ -53,7 +56,14 @@ class _HomeState extends State<Home> {
   void initState() { 
     super.initState();
 
-    // var initialzationSettingsAndroid
+    var initializationSettingsAndroid =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    var initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid
+    );
+
+    flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       RemoteNotification notification = message.notification;
@@ -68,8 +78,6 @@ class _HomeState extends State<Home> {
                 channel.id,
                 channel.name,
                 channel.description,
-                // TODO add a proper drawable resource to android, for now using
-                //      one that already exists in example app.
                 icon: 'launch_background',
               ),
             ));
@@ -80,7 +88,7 @@ class _HomeState extends State<Home> {
   }
 
   getToken() async {
-    print('get token');
+    print('[GET] token');
     String token = await FirebaseMessaging.instance.getToken();
     print(token);
   }
@@ -89,7 +97,7 @@ class _HomeState extends State<Home> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Text("Test 2")
+        child: Text("Test 3")
       ),
     );
   }
