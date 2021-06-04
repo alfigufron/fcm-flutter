@@ -3,11 +3,10 @@ import 'package:flutter/material.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:notification_permissions/notification_permissions.dart';
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage msg) async {
-  print("Background Handler");
   await Firebase.initializeApp();
-  print("Background Message $msg");
 }
 
 const AndroidNotificationChannel channel = AndroidNotificationChannel(
@@ -25,6 +24,12 @@ void main() async {
   await Firebase.initializeApp();
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
 
   await flutterLocalNotificationsPlugin
     .resolvePlatformSpecificImplementation
@@ -52,9 +57,29 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
+  bool permNotification = true;
+  bool alertPerm = false;
+
+  var permGranted = "granted";
+  var permDenied = "denied";
+  var permUnknown = "unknown";
+  var permProvisional = "provisional";
+
+  void checkNotificationPermStatus() async {
+    final status = await NotificationPermissions.getNotificationPermissionStatus();
+
+    (status == PermissionStatus.granted)
+      ? permNotification = true
+      : permNotification = false;
+
+    setState(() {});
+  }
+  
   @override
   void initState() { 
     super.initState();
+
+    checkNotificationPermStatus();
 
     var initializationSettingsAndroid =
       AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -68,6 +93,7 @@ class _HomeState extends State<Home> {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       RemoteNotification notification = message.notification;
       AndroidNotification android = message.notification?.android;
+
       if (notification != null && android != null) {
         flutterLocalNotificationsPlugin.show(
             notification.hashCode,
@@ -78,7 +104,7 @@ class _HomeState extends State<Home> {
                 channel.id,
                 channel.name,
                 channel.description,
-                icon: 'launch_background',
+                icon: android?.smallIcon,
               ),
             ));
       }
@@ -90,15 +116,90 @@ class _HomeState extends State<Home> {
   getToken() async {
     print('[GET] token');
     String token = await FirebaseMessaging.instance.getToken();
-    print(token);
+    print("[RESPONSE] token : $token");
   }
 
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!alertPerm && !permNotification) {
+        checkNotificationPermStatus();
+
+        print("[DEBUG] $permNotification");
+
+        showAlertPerm(context);
+        
+        setState(() => alertPerm = true);
+      }
+    });
+
     return Scaffold(
       body: SafeArea(
-        child: Text("Test 3")
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text("FCM Notification Demo"),
+              TextButton(
+                onPressed: () {
+                  NotificationPermissions.requestNotificationPermissions();
+                },
+                child: Text("Permission Notification")
+              ),
+              TextButton(
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (BuildContext context) => 
+                    AlertDialog(
+                      title: Text("Permission Notification"),
+                      actions: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            
+                            NotificationPermissions.requestNotificationPermissions();
+                          },
+                          child: Text("Yes")
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: Text("No")
+                        ),
+                      ],
+                    )
+                  ),
+                child: Text("Permission Notification with Dialog")
+              ),
+            ],
+          )
+        )
       ),
     );
+  }
+
+  void showAlertPerm(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) => 
+        AlertDialog(
+          title: Text("Permission Notification"),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                
+                NotificationPermissions.requestNotificationPermissions();
+              
+              },
+              child: Text("Yes")
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text("No")
+            ),
+          ],
+        )
+      );
   }
 }
